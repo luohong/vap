@@ -29,18 +29,19 @@ import com.tencent.qgame.animplayer.plugin.IAnimPlugin
 import com.tencent.qgame.animplayer.util.ALog
 import com.tencent.qgame.animplayer.util.BitmapUtil
 
-class MixAnimPlugin(val player: AnimPlayer): IAnimPlugin {
+class MixAnimPlugin(val player: AnimPlayer) : IAnimPlugin {
 
     companion object {
         private const val TAG = "${Constant.TAG}.MixAnimPlugin"
     }
+
     var resourceRequest: IFetchResource? = null
     var resourceClickListener: OnResourceClickListener? = null
     var srcMap: SrcMap? = null
     var frameAll: FrameAll? = null
     var curFrameIndex = -1 // 当前帧
     private var resultCbCount = 0 // 回调次数
-    private var mixRender:MixRender? = null
+    private var mixRender: MixRender? = null
     private val mixTouch by lazy { MixTouch(this) }
     var autoTxtColorFill = true // 是否启动自动文字填充 默认开启
 
@@ -96,7 +97,7 @@ class MixAnimPlugin(val player: AnimPlayer): IAnimPlugin {
         if (!config.isMix) return
         curFrameIndex = frameIndex
         val list = frameAll?.map?.get(frameIndex)?.list ?: return
-        list.forEach {frame ->
+        list.forEach { frame ->
             val src = srcMap?.map?.get(frame.srcId) ?: return@forEach
             mixRender?.renderFrame(config, frame, src)
         }
@@ -115,13 +116,16 @@ class MixAnimPlugin(val player: AnimPlayer): IAnimPlugin {
         if (player.configManager.config?.isMix == false || resourceClickListener == null) {
             return super.onDispatchTouchEvent(ev)
         }
-        mixTouch.onTouchEvent(ev)?.let {resource ->
-            Handler(Looper.getMainLooper()).post {
-                resourceClickListener?.onClick(resource)
+        val onTouchedResource = mixTouch.onTouchEvent(ev)
+        if (ev.action == MotionEvent.ACTION_UP) {
+            onTouchedResource?.let { resource ->
+                Handler(Looper.getMainLooper()).post {
+                    resourceClickListener?.onClick(resource)
+                }
             }
         }
         // 只要注册监听则拦截所有事件
-        return true
+        return onTouchedResource != null
     }
 
     private fun destroy() {
@@ -129,12 +133,13 @@ class MixAnimPlugin(val player: AnimPlayer): IAnimPlugin {
         forceStopLockThread()
         if (player.configManager.config?.isMix == false) return
         val resources = ArrayList<Resource>()
-        srcMap?.map?.values?.forEach {src ->
+        srcMap?.map?.values?.forEach { src ->
             mixRender?.release(src.srcTextureId)
-            when(src.srcType) {
+            when (src.srcType) {
                 Src.SrcType.IMG -> resources.add(Resource(src))
                 Src.SrcType.TXT -> src.bitmap?.recycle()
-                else -> {}
+                else -> {
+                }
             }
         }
         resourceRequest?.releaseResource(resources)
@@ -168,7 +173,7 @@ class MixAnimPlugin(val player: AnimPlayer): IAnimPlugin {
         ALog.i(TAG, "load resource totalSrc = $totalSrc")
 
         resultCbCount = 0
-        srcMap?.map?.values?.forEach {src ->
+        srcMap?.map?.values?.forEach { src ->
             if (src.srcType == Src.SrcType.IMG) {
                 ALog.i(TAG, "fetch image ${src.srcId}")
                 resourceRequest?.fetchImage(Resource(src)) {

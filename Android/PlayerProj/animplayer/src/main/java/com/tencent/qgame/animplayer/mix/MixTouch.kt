@@ -16,7 +16,9 @@
 package com.tencent.qgame.animplayer.mix
 
 import android.view.MotionEvent
+import com.tencent.qgame.animplayer.Constant
 import com.tencent.qgame.animplayer.PointRect
+import com.tencent.qgame.animplayer.util.ALog
 
 /**
  * 触摸事件
@@ -32,9 +34,10 @@ class MixTouch(private val mixAnimPlugin: MixAnimPlugin) {
         if (viewWith == 0 || viewHeight == 0) return null
 
         when(ev.action) {
+            MotionEvent.ACTION_DOWN,
             MotionEvent.ACTION_UP -> {
-                val x = ev.rawX * videoWith / viewWith
-                val y = ev.rawY * videoHeight / viewHeight
+                val x = ev.x * videoWith / viewWith
+                val y = ev.y * videoHeight / viewHeight
                 val list = mixAnimPlugin.frameAll?.map?.get(mixAnimPlugin.curFrameIndex)?.list
                 list?.forEach {frame ->
                     val src = mixAnimPlugin.srcMap?.map?.get(frame.srcId) ?: return@forEach

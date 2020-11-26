@@ -17,6 +17,8 @@ package com.tencent.qgame.animplayer.util
 
 import android.graphics.*
 import android.text.TextPaint
+import android.view.Gravity
+import com.tencent.qgame.animplayer.Constant
 import com.tencent.qgame.animplayer.mix.Src
 
 object BitmapUtil {
@@ -54,7 +56,22 @@ object BitmapUtil {
         val bottom = fontMetrics.bottom
         val baseline = rect.centerY() - top/2 - bottom/2
 
-        canvas.drawText(text, rect.centerX().toFloat(), baseline.toFloat(), paint)
+        var tag = src.srcTag
+        var gravity = Gravity.CENTER;
+        if (tag.endsWith("_l")) {
+            gravity = Gravity.LEFT;
+        } else if (tag.endsWith("_r")) {
+            gravity = Gravity.RIGHT;
+        }
+        ALog.i(Constant.TAG, "create text bitmap $tag gravity $gravity")
+        var x = rect.centerX().toFloat()
+        if (gravity == Gravity.LEFT) {
+            x = bounds.centerX().toFloat()
+        } else if (gravity == Gravity.RIGHT) {
+            x = (rect.centerX() + (rect.centerX() - bounds.centerX())).toFloat()
+        }
+        ALog.i(Constant.TAG, "create text bitmap $text show in rect $rect with x $x")
+        canvas.drawText(text, x, baseline.toFloat(), paint)
 
         return bitmap
     }

@@ -67,10 +67,19 @@ class Src {
         h = json.getInt("h")
         // 可选
         var colorStr = json.optString("color", "#000000")
-        if (colorStr.isEmpty()) {
+        if (colorStr.isNullOrEmpty()) {
             colorStr = "#000000"
         }
-        color = Color.parseColor(colorStr)
+        try {
+            color = Color.parseColor(colorStr)
+        } catch (e : Throwable) {
+            color = if (colorStr.startsWith("#") && colorStr.length > 7) {
+                Color.parseColor(colorStr.substring(0, 7))
+            } else {
+                Color.WHITE
+            }
+            ALog.e(TAG, "parse color error", e)
+        }
         srcTag = json.getString("srcTag")
         txt = srcTag
 
