@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">AnimPlayer</string>
+
+    <string name="button_allow">允许</string>
+    <string name="button_deny">拒绝</string>
+    <string name="permission_camera_rationale">存储权限为了访问SD卡vap资源</string>
+    <string name="permission_camera_denied">存储权限已被拒绝. 为了访问SD卡，请考虑授权存储权限!</string>
+    <string name="permission_camera_never_ask_again">存储权限已被拒绝，并且不再提醒</string>
 </resources>

@@ -15,7 +15,9 @@
  */
 package com.tencent.qgame.playerproj.player
 
+import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -23,9 +25,14 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.text.TextUtils
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.StringRes
+import com.github.angads25.filepicker.model.DialogConfigs
+import com.github.angads25.filepicker.model.DialogProperties
+import com.github.angads25.filepicker.view.FilePickerDialog
 import com.tencent.qgame.animplayer.AnimConfig
 import com.tencent.qgame.animplayer.AnimView
 import com.tencent.qgame.animplayer.inter.IAnimListener
@@ -36,14 +43,15 @@ import com.tencent.qgame.animplayer.util.ALog
 import com.tencent.qgame.animplayer.util.IALog
 import com.tencent.qgame.playerproj.R
 import kotlinx.android.synthetic.main.activity_anim_simple_demo.*
+import permissions.dispatcher.*
 import java.io.File
-import java.util.*
 
 
 /**
  * VAPX demo (融合特效Demo)
  * 必须使用组件里提供的工具才能生成VAPX动画
  */
+@RuntimePermissions
 class AnimVapxDemoActivity : Activity(), IAnimListener {
 
     companion object {
@@ -52,7 +60,7 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
 
     private val dir by lazy {
         // 存放在sdcard应用缓存文件中
-        getExternalFilesDir(null)?.absolutePath ?: Environment.getExternalStorageDirectory().path
+        Environment.getExternalStorageDirectory().path
     }
 
     private var head1Img = true
@@ -60,7 +68,7 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
     // 视频信息
     data class VideoInfo(val fileName: String, val md5: String)
 
-    private val videoInfo = VideoInfo("vapx.mp4", "f981e0f094ead842ad5ae99f1ffaa1a1")
+    private var videoInfo : VideoInfo? = null// = VideoInfo("vapx.mp4", "f981e0f094ead842ad5ae99f1ffaa1a1")
 
     // 动画View
     private lateinit var animView: AnimView
@@ -73,7 +81,7 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_anim_simple_demo)
         // 文件加载完成后会调用init方法
-        loadFile()
+        init()
     }
 
     private fun init() {
@@ -99,9 +107,13 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
                  */
                 val srcTag = resource.tag
 
-                if (srcTag == "[sImg1]") { // 此tag是已经写入到动画配置中的tag
-                    val drawableId = if (head1Img) R.drawable.head1 else R.drawable.head2
-                    head1Img = !head1Img
+                if (TextUtils.equals(srcTag, "[imgUser]") || TextUtils.equals(srcTag, "imgUser")) { // 此tag是已经写入到动画配置中的tag
+                    val drawableId = R.drawable.head1
+                    val options = BitmapFactory.Options()
+                    options.inScaled = false
+                    result(BitmapFactory.decodeResource(resources, drawableId, options))
+                } else if (TextUtils.equals(srcTag, "[imgAnchor]") || TextUtils.equals(srcTag, "imgAnchor")) { // 此tag是已经写入到动画配置中的tag
+                    val drawableId = R.drawable.head2
                     val options = BitmapFactory.Options()
                     options.inScaled = false
                     result(BitmapFactory.decodeResource(resources, drawableId, options))
@@ -114,11 +126,26 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
              * 获取文字资源
              */
             override fun fetchText(resource: Resource, result: (String?) -> Unit) {
-                val str = "恭喜 No.${1000 + Random().nextInt(8999)}用户 升神"
-                val srcTag = resource.tag
 
-                if (srcTag == "[sTxt1]") { // 此tag是已经写入到动画配置中的tag
-                    result(str)
+                // 此tag是已经写入到动画配置中的tag
+                val tag = resource.tag
+                ALog.d(TAG, "fetchText $tag")
+                if (TextUtils.equals(tag, "[textUser]") || TextUtils.equals(tag, "textUser")) {
+                    result("罗洪")
+                } else if (TextUtils.equals(tag, "[textAnchor]") || TextUtils.equals(tag, "textAnchor")) {
+                    result("姚佳烨")
+                } else if (TextUtils.equals(tag, "[content]") || TextUtils.equals(tag, "content")) {
+                    result("震撼登场")
+                } else if (TextUtils.equals(tag, "[textFamily]") || TextUtils.equals(tag, "textFamily")) {
+                    result("家族")
+                } else if (TextUtils.equals(tag, "[levelUser]") || TextUtils.equals(tag, "levelUser")) {
+                    result("LV.100")
+                } else if (tag.startsWith("textUserContent")) {
+                    result("罗洪 震撼登场")
+                } else if (tag.startsWith("textUserLevelContent")) {
+                    result("LV.100 罗洪 震撼登场")
+                } else if (tag.startsWith("textUserLevel")) {
+                    result("LV.100 罗洪")
                 } else {
                     result(null)
                 }
@@ -151,22 +178,83 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
          * 开始播放主流程
          * ps: 主要流程都是对AnimView的操作，其它比如队列，或改变窗口大小等操作都不是必须的
          */
-        play(videoInfo)
+//        play(videoInfo)
     }
 
+    @NeedsPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+    fun choose() {
+        val path = DialogConfigs.DEFAULT_DIR + "/sdcard/VAP"
 
-    private fun play(videoInfo: VideoInfo) {
+        val file = File(path)
+        if (!file.exists()) {
+            file.mkdirs()
+        }
+
+        val properties = DialogProperties()
+        properties.selection_mode = DialogConfigs.SINGLE_MODE
+        properties.selection_type = DialogConfigs.FILE_SELECT
+        properties.root = file
+        properties.error_dir = file
+        properties.offset = file
+        properties.extensions = arrayOf("mp4")
+
+        val dialog = FilePickerDialog(this, properties)
+        dialog.setTitle("选择Vap文件")
+        dialog.setDialogSelectionListener { files ->
+            if (files != null) {
+                Toast.makeText(
+                    this@AnimVapxDemoActivity,
+                    "文件路径: ${files[0]}",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                videoInfo = VideoInfo(files[0], "")
+            }
+        }
+        dialog.show()
+    }
+
+    @OnShowRationale(Manifest.permission.CAMERA)
+    fun showRationaleForCamera(request: PermissionRequest) {
+        showRationaleDialog(R.string.permission_camera_rationale, request)
+    }
+
+    @OnPermissionDenied(Manifest.permission.CAMERA)
+    fun onCameraDenied() {
+        Toast.makeText(this, R.string.permission_camera_denied, Toast.LENGTH_SHORT).show()
+    }
+
+    @OnNeverAskAgain(Manifest.permission.CAMERA)
+    fun onCameraNeverAskAgain() {
+        Toast.makeText(this, R.string.permission_camera_never_ask_again, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showRationaleDialog(@StringRes messageResId: Int, request: PermissionRequest) {
+        AlertDialog.Builder(this)
+            .setPositiveButton(R.string.button_allow) { _, _ -> request.proceed() }
+            .setNegativeButton(R.string.button_deny) { _, _ -> request.cancel() }
+            .setCancelable(false)
+            .setMessage(messageResId)
+            .show()
+    }
+
+    private fun play(videoInfo: VideoInfo?) {
+        if (videoInfo == null) {
+            Toast.makeText(this, "请选择播放文件", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         // 播放前强烈建议检查文件的md5是否有改变
         // 因为下载或文件存储过程中会出现文件损坏，导致无法播放
         Thread {
-            val file = File(dir + "/" + videoInfo.fileName)
-            val md5 = FileUtil.getFileMD5(file)
-            if (videoInfo.md5 == md5) {
-                // 开始播放动画文件
-                animView.startPlay(file)
-            } else {
-                Log.e(TAG, "md5 is not match, error md5=$md5")
-            }
+            val file = File(videoInfo.fileName)
+//            val md5 = FileUtil.getFileMD5(file)
+//            if (videoInfo.md5 == md5) {
+            // 开始播放动画文件
+            animView.startPlay(file)
+//            } else {
+//                Log.e(TAG, "md5 is not match, error md5=$md5")
+//            }
         }.start()
     }
 
@@ -221,6 +309,11 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
      */
     override fun onFailed(errorType: Int, errorMsg: String?) {
         Log.i(TAG, "onFailed errorType=$errorType errorMsg=$errorMsg")
+        Toast.makeText(
+            this@AnimVapxDemoActivity,
+            "播放失败: $errorType - $errorMsg",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
 
@@ -256,6 +349,12 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
     private fun initTestView() {
         btnLayout.visibility = View.VISIBLE
         /**
+         * 选择资源按钮
+         */
+        btnChoose.setOnClickListener {
+            choose()
+        }
+        /**
          * 开始播放按钮
          */
         btnPlay.setOnClickListener {
@@ -269,16 +368,16 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
         }
     }
 
-    private fun loadFile() {
-        val files = Array(1) {
-            videoInfo.fileName
-        }
-        FileUtil.copyAssetsToStorage(this, dir, files) {
-            uiHandler.post {
-                init()
-            }
-        }
-    }
+//    private fun loadFile() {
+//        val files = Array(1) {
+//            videoInfo.fileName
+//        }
+//        FileUtil.copyAssetsToStorage(this, dir, files) {
+//            uiHandler.post {
+//                init()
+//            }
+//        }
+//    }
 
 
     private fun dp2px(context: Context, dp: Float): Float {

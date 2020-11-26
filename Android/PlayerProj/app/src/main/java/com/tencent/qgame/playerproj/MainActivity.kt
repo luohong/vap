@@ -34,10 +34,13 @@ class MainActivity : Activity(){
         }
         btn2.setOnClickListener {
             startActivity(Intent(this, AnimVapxDemoActivity::class.java))
+            finish()
         }
         btn3.setOnClickListener {
             startActivity(Intent(this, AnimActiveDemoActivity::class.java))
         }
+
+        btn2.performClick()
     }
 
 
