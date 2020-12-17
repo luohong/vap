@@ -15,6 +15,10 @@
  */
 package com.tencent.qgame.playerproj.animtool;
 
+import com.tencent.qgame.playerproj.animtool.vapx.FrameSet;
+import com.tencent.qgame.playerproj.animtool.vapx.GetMaskFrame;
+import com.tencent.qgame.playerproj.animtool.vapx.SrcSet;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.BufferedWriter;
@@ -26,21 +30,37 @@ public class AnimTool {
 
     private static final String TAG = "AnimTool";
 
+    public static final String OUTPUT_DIR = "output"+ File.separator;
+    public static final String FRAME_IMAGE_DIR = "frames"+ File.separator;
+    public static final String VIDEO_FILE = "video.mp4";
+    public static final String TEMP_VIDEO_FILE = "tmp_video.mp4";
+    public static final String TEMP_VIDEO_AUDIO_FILE = "tmp_video_audio.mp4";
+    public static final String VAPC_BIN_FILE = "vapc.bin";
+    public static final String VAPC_JSON_FILE = "vapc.json";
+
+
+
     private volatile int totalP = 0;
     private volatile int finishThreadCount = 0;
     private long time;
     private GetAlphaFrame getAlphaFrame = new GetAlphaFrame();
+    private GetMaskFrame getMaskFrame = new GetMaskFrame();
+    private IToolListener toolListener;
 
+    public void setToolListener(IToolListener toolListener) {
+        this.toolListener = toolListener;
+    }
 
     /**
      * @param commonArg
      * @param needVideo true 生成完整视频 false 只合成帧图片
      */
-    public void create(final CommonArg commonArg, final boolean needVideo) {
+    public void create(final CommonArg commonArg, final boolean needVideo) throws Exception{
+        TLog.i(TAG, "start create");
         createAllFrameImage(commonArg, new Runnable() {
             @Override
             public void run() {
-                if (needVideo) {
+                if (finalCheck(commonArg) && needVideo) {
                     // 最终生成视频文件
                     createVideo(commonArg);
                 }
@@ -53,47 +73,39 @@ public class AnimTool {
      * @param commonArg
      * @return
      */
-    private boolean checkCommonArg(CommonArg commonArg) {
-        if (commonArg.totalFrame <= 0) {
-            TLog.i(TAG, "error: totalFrame=" + commonArg.totalFrame);
-            return false;
-        }
+    private boolean checkCommonArg(CommonArg commonArg) throws Exception {
+        return CommonArgTool.autoFillAndCheck(commonArg, toolListener);
+    }
 
-        if (commonArg.videoW <= 0 || commonArg.videoH <= 0) {
-            TLog.i(TAG, "error: video size " + commonArg.videoW + "x" + commonArg.videoH);
-            return false;
-        }
-
-        // 宽高必须是16的倍数，某些机行会进行对齐
-        if (commonArg.videoW % 16 != 0 || commonArg.videoH % 16 != 0) {
-            TLog.i(TAG, "error: video size " + commonArg.videoW + "x" + commonArg.videoH + " can not be divisible by 16");
-            return false;
-        }
-
-        File input = new File(commonArg.inputPath);
-        if (!input.exists()) {
-            TLog.i(TAG, "error: input path invalid " + commonArg.inputPath);
-            return false;
-        }
-
-        if (!File.separator.equals(commonArg.inputPath.substring(commonArg.inputPath.length() - 1))) {
-            commonArg.inputPath = commonArg.inputPath + File.separator;
-        }
-        if (!File.separator.equals(commonArg.outputPath.substring(commonArg.outputPath.length() - 1))) {
-            commonArg.outputPath = commonArg.outputPath + File.separator;
+    private boolean finalCheck(CommonArg commonArg) {
+        if (commonArg.isVapx) {
+            if (commonArg.srcSet.srcs.isEmpty()) {
+                TLog.i(TAG, "vapx error: src is empty");
+                return false;
+            }
+            for (SrcSet.Src src : commonArg.srcSet.srcs) {
+                if (src.w <=0 || src.h <= 0) {
+                    TLog.i(TAG, "vapx error: src.id=" + src.srcId + ",src.w=" + src.w + ",src.h=" + src.h);
+                    return false;
+                }
+            }
         }
         return true;
     }
 
-    private void createAllFrameImage(final CommonArg commonArg, final Runnable finishRunnable) {
+    private void createAllFrameImage(final CommonArg commonArg, final Runnable finishRunnable) throws Exception{
         if (!checkCommonArg(commonArg)) {
+            if (toolListener != null) toolListener.onError();
             return;
         }
 
+        TLog.i(TAG, "createAllFrameImage");
         time = System.currentTimeMillis();
 
         // 检测output文件是否存在，不存在则生成
         checkDir(commonArg.outputPath);
+        checkDir(commonArg.frameOutputPath);
+
         totalP = 0;
         finishThreadCount = 0;
         final int threadNum = 16;
@@ -108,20 +120,28 @@ public class AnimTool {
         threadIndexSet[threadNum-1][0] = (threadNum-1) * block;
         threadIndexSet[threadNum-1][1] = totalFrame;
 
+        if (toolListener != null) {
+            toolListener.onProgress(0f);
+        }
         for (int i=0; i<threadNum; i++) {
             final int k = i;
             new Thread(new Runnable() {
                 @Override
                 public void run() {
                     for(int i = threadIndexSet[k][0]; i<threadIndexSet[k][1]; i++) {
-                        synchronized (AnimTool.class) {
-                            totalP++;
-                            TLog.i(TAG, "progress " + (totalP * 1.0f / commonArg.totalFrame));
-                        }
                         try {
                             createFrame(commonArg, i);
                         } catch (Exception e) {
                             e.printStackTrace();
+                        }
+                        synchronized (AnimTool.class) {
+                            totalP++;
+                            float progress = totalP * 1.0f / commonArg.totalFrame;
+                            if (toolListener != null) {
+                                toolListener.onProgress(progress);
+                            } else {
+                                TLog.i(TAG, "progress " + progress);
+                            }
                         }
                     }
                     synchronized (AnimTool.class) {
@@ -132,6 +152,9 @@ public class AnimTool {
                             }
                             long cost = System.currentTimeMillis() - time;
                             TLog.i(TAG,"Finish cost=" + cost);
+                            if (toolListener != null) {
+                                toolListener.onComplete();
+                            }
                         }
                     }
                 }
@@ -140,19 +163,23 @@ public class AnimTool {
     }
 
     private void createFrame(CommonArg commonArg, int frameIndex) throws Exception {
-        int w = commonArg.videoW;
-        int h = commonArg.videoH;
         File inputFile = new File(commonArg.inputPath + String.format("%03d", frameIndex)+".png");
-        GetAlphaFrame.AlphaFrameOut videoFrame = getAlphaFrame.createFrame(commonArg.orin,w, h, inputFile);
+        GetAlphaFrame.AlphaFrameOut videoFrame = getAlphaFrame.createFrame(commonArg, inputFile);
+        if (commonArg.isVapx) {
+            FrameSet.FrameObj frameObj = getMaskFrame.getFrameObj(frameIndex, commonArg, videoFrame.argb);
+            if (frameObj != null) {
+                commonArg.frameSet.frameObjs.add(frameObj);
+            }
+        }
         if (videoFrame == null) {
             TLog.i(TAG, "frameIndex="+frameIndex +" is empty");
             return;
         }
         // 最后保存图片
-        BufferedImage outBuf = new BufferedImage(videoFrame.outW, videoFrame.outH, BufferedImage.TYPE_INT_ARGB);
-        outBuf.setRGB(0,0, videoFrame.outW, videoFrame.outH, videoFrame.argb, 0, videoFrame.outW);
+        BufferedImage outBuf = new BufferedImage(commonArg.outputW, commonArg.outputH, BufferedImage.TYPE_INT_ARGB);
+        outBuf.setRGB(0,0, commonArg.outputW, commonArg.outputH, videoFrame.argb, 0, commonArg.outputW);
 
-        File outputFile = new File(commonArg.outputPath  + String.format("%03d", frameIndex) +".png");
+        File outputFile = new File(commonArg.frameOutputPath + String.format("%03d", frameIndex) +".png");
         ImageIO.write(outBuf, "PNG", outputFile);
     }
 
@@ -173,24 +200,38 @@ public class AnimTool {
             // 创建配置json文件
             createVapcJson(commonArg);
             // 创建mp4文件
-            boolean result = createMp4(commonArg);
+            boolean result = createMp4(commonArg, commonArg.outputPath, commonArg.frameOutputPath);
             if (!result) {
                 TLog.i(TAG, "createMp4 fail");
                 return;
             }
-            String input = commonArg.outputPath + "/vapc.json";
+            String tempVideoName = TEMP_VIDEO_FILE;
+            if (commonArg.needAudio) {
+                result = mergeAudio2Mp4(commonArg, tempVideoName);
+                if (!result) {
+                    TLog.i(TAG, "mergeAudio2Mp4 fail");
+                    return;
+                }
+                tempVideoName = TEMP_VIDEO_AUDIO_FILE;
+            }
+
+            String input = commonArg.outputPath + VAPC_JSON_FILE;
             // 由json变为bin文件
-            mp4BoxTool(input, commonArg.outputPath);
+            String vapcBinPath = mp4BoxTool(input, commonArg.outputPath);
             // 将bin文件合并到mp4里
-            result = mergeBin2Mp4(commonArg.outputPath + "/vapc.bin", commonArg.outputPath);
+            result = mergeBin2Mp4(commonArg, vapcBinPath, tempVideoName, commonArg.outputPath);
             if (!result) {
                 TLog.i(TAG, "mergeBin2Mp4 fail");
                 return;
             }
             // 删除临时视频文件
-            new File(commonArg.outputPath + "/tmp_video.mp4").delete();
+            new File(commonArg.outputPath + TEMP_VIDEO_FILE).delete();
+            if (commonArg.needAudio) {
+                new File(commonArg.outputPath + TEMP_VIDEO_AUDIO_FILE).delete();
+            }
+            new File(commonArg.outputPath + VAPC_BIN_FILE).delete();
             // 计算文件md5
-            String md5 = new Md5Util().getFileMD5(new File(commonArg.outputPath + "/video.mp4"), commonArg.outputPath);
+            String md5 = new Md5Util().getFileMD5(new File(commonArg.outputPath + VIDEO_FILE), commonArg.outputPath);
             TLog.i(TAG, "md5="+md5);
         } catch (Exception e) {
             e.printStackTrace();
@@ -202,36 +243,36 @@ public class AnimTool {
      * @param commonArg
      */
     private void createVapcJson(CommonArg commonArg) {
-        String json = "{\"info\":{\"v\":$(v),\"f\":$(f),\"w\":$(w),\"h\":$(h),\"videoW\":$(videoW),\"videoH\":$(videoH),\"orien\":0,\"fps\":$(fps),\"isVapx\":0,\"aFrame\":$(aFrame),\"rgbFrame\":$(rgbFrame)}}";
-        json = json.replace("$(v)", String.valueOf(commonArg.version));
-        json = json.replace("$(f)", String.valueOf(commonArg.totalFrame));
-        json = json.replace("$(w)", String.valueOf(commonArg.videoW));
-        json = json.replace("$(h)", String.valueOf(commonArg.videoH));
-        json = json.replace("$(fps)", String.valueOf(commonArg.fps));
-        int realW = 0;
-        int realH = 0;
-        int cx, cy;
-        String aFrame = "[0,0,"+commonArg.videoW+","+commonArg.videoH+"]";
-        String rgbFrame = "[0,0,0,0]";
-        if (commonArg.orin == CommonArg.ORIN_H) { // 水平对齐
-            realW = 2 * commonArg.videoW;
-            realH = commonArg.videoH;
-            cx = commonArg.videoW;
-            cy = 0;
-        } else { // 上下对齐
-            realW = commonArg.videoW;
-            realH = 2 * commonArg.videoH;
-            cx = 0;
-            cy = commonArg.videoH;
-        }
-        rgbFrame = "["+cx+","+cy+","+commonArg.videoW+","+commonArg.videoH+"]";
 
-        json = json.replace("$(videoW)", String.valueOf(realW));
-        json = json.replace("$(videoH)", String.valueOf(realH));
-        json = json.replace("$(aFrame)", aFrame);
-        json = json.replace("$(rgbFrame)", rgbFrame);
+        String json = "\"info\":{" +
+                "\"v\":" + commonArg.version + "," +
+                "\"f\":" + commonArg.totalFrame + "," +
+                "\"w\":" + commonArg.rgbPoint.w + "," +
+                "\"h\":" + commonArg.rgbPoint.h + "," +
+                "\"fps\":" + commonArg.fps + "," +
+                "\"videoW\":" + commonArg.outputW + "," +
+                "\"videoH\":" + commonArg.outputH + "," +
+                "\"aFrame\":" + commonArg.alphaPoint.toString() + "," +
+                "\"rgbFrame\":" + commonArg.rgbPoint.toString() + "," +
+                "\"isVapx\":" + (commonArg.isVapx ? 1 : 0) + "," +
+                "\"orien\":" + 0 +
+                "}";
+        TLog.i(TAG, "{" + json + "}");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append(json);
+        if (commonArg.isVapx) {
+            sb.append(",");
+            sb.append(commonArg.srcSet.toString());
+            sb.append(",");
+            sb.append(commonArg.frameSet.toString());
+        }
+        sb.append("}");
+        json = sb.toString();
+
         try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter(commonArg.outputPath + "/vapc.json"));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(commonArg.outputPath + VAPC_JSON_FILE));
             writer.write(json);
             writer.flush();
             writer.close();
@@ -239,8 +280,6 @@ public class AnimTool {
             e.printStackTrace();
             throw new RuntimeException();
         }
-        TLog.i(TAG,json);
-
     }
 
 
@@ -249,36 +288,63 @@ public class AnimTool {
 
     /**
      * 创建mp4
-     * @param commonArg
-     * @throws Exception
      */
-    private boolean createMp4(CommonArg commonArg) throws Exception {
-        String path = commonArg.outputPath;
-        String[] cmd = new String[] {"ffmpeg", "-r", String.valueOf(commonArg.fps),
-                "-i", path + "/%03d.png",
-                "-pix_fmt", "yuv420p",
-                "-vcodec", "libx264",
-                "-b:v", "3000k",
-                "-profile:v", "baseline",
-                "-level", "3.0",
-                "-bf", "0",
-                "-y", path+"/tmp_video.mp4"};
+    private boolean createMp4(CommonArg commonArg, String videoPath, String frameImagePath) throws Exception {
+        String[] cmd;
+        if (commonArg.enableH265) {
+            cmd = new String[] {commonArg.ffmpegCmd, "-r", String.valueOf(commonArg.fps),
+                    "-i", frameImagePath + "%03d.png",
+                    "-pix_fmt", "yuv420p",
+                    "-vcodec", "libx265",
+                    "-b:v", commonArg.bitrate + "k",
+                    "-profile:v", "main",
+                    "-level", "4.0",
+                    "-tag:v", "hvc1",
+                    "-bufsize", "2000k",
+                    "-y", videoPath + TEMP_VIDEO_FILE};
+        } else {
+            cmd = new String[]{commonArg.ffmpegCmd, "-r", String.valueOf(commonArg.fps),
+                    "-i", frameImagePath + "%03d.png",
+                    "-pix_fmt", "yuv420p",
+                    "-vcodec", "libx264",
+                    "-b:v", commonArg.bitrate + "k",
+                    "-profile:v", "main",
+                    "-level", "4.0",
+                    "-bf", "0",
+                    "-bufsize", "2000k",
+                    "-y", videoPath + TEMP_VIDEO_FILE};
+        }
 
-        Process pro = Runtime.getRuntime().exec(cmd);
-        int result = pro.waitFor();
+        TLog.i(TAG, "run createMp4");
+        int result = ProcessUtil.run(cmd);
         TLog.i(TAG, "createMp4 result=" + (result == 0? "success" : "fail"));
         return result == 0;
     }
 
     /**
-     * 合并vapc.bin到mp4里
-     * @param inputFile
-     * @throws Exception
+     * 合并音频文件
      */
-    private boolean mergeBin2Mp4(String inputFile, String videoPath) throws Exception{
-        String[] cmd = new String[] {"mp4edit", "--insert", ":"+inputFile+":1", videoPath + "/tmp_video.mp4", videoPath + "/video.mp4"};
-        Process pro = Runtime.getRuntime().exec(cmd);
-        int result = pro.waitFor();
+    private boolean mergeAudio2Mp4(CommonArg commonArg, String tempVideoFile) throws Exception {
+        String[] cmd = new String[] {commonArg.ffmpegCmd,
+                "-i", commonArg.audioPath,
+                "-i", commonArg.outputPath + tempVideoFile,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-y", commonArg.outputPath + TEMP_VIDEO_AUDIO_FILE};
+        TLog.i(TAG, "run mergeAudio2Mp4");
+        int result = ProcessUtil.run(cmd);
+        TLog.i(TAG, "mergeAudio2Mp4 result=" + (result == 0? "success" : "fail"));
+        return result == 0;
+    }
+
+
+    /**
+     * 合并vapc.bin到mp4里
+     */
+    private boolean mergeBin2Mp4(CommonArg commonArg, String inputFile, String tempVideoFile, String videoPath) throws Exception{
+        String[] cmd = new String[] {commonArg.mp4editCmd, "--insert", ":"+inputFile+":1", videoPath + tempVideoFile, videoPath + VIDEO_FILE};
+        TLog.i(TAG, "run mergeBin2Mp4");
+        int result = ProcessUtil.run(cmd);
         TLog.i(TAG, "mergeBin2Mp4 result=" + (result == 0? "success" : "fail"));
         return result == 0;
     }
@@ -287,9 +353,17 @@ public class AnimTool {
      * 生成对应的box bin
      * 执行 mp4edit --insert :vapc.bin:1 demo_origin.mp4 demo_output.mp4 插入对应box
      */
-    private void mp4BoxTool(String inputFile, String outputPath) throws Exception {
+    private String mp4BoxTool(String inputFile, String outputPath) throws Exception {
         Mp4BoxTool mp4BoxTool = new Mp4BoxTool();
-        mp4BoxTool.create(inputFile, outputPath);
+        return mp4BoxTool.create(inputFile, outputPath);
+    }
+
+
+    public interface IToolListener {
+        void onProgress(float progress);
+        void onWarning(String msg);
+        void onError();
+        void onComplete();
     }
 
 }

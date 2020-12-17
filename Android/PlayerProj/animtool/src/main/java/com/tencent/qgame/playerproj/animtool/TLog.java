@@ -16,7 +16,37 @@
 package com.tencent.qgame.playerproj.animtool;
 
 public class TLog {
+
+    public static ITLog logger;
+
     public static void i(String tag, String msg) {
-        System.out.println(tag + "\t" + msg);
+        if (logger != null) {
+            logger.i(tag, msg);
+        } else {
+            System.out.println(tag + "\t" + msg);
+        }
+    }
+
+    public static void e(String tag, String msg) {
+        if (logger != null) {
+            logger.e(tag, msg);
+        } else {
+            System.out.println(tag + "\tError:" + msg);
+        }
+    }
+
+    public static void w(String tag, String msg) {
+        if (logger != null) {
+            logger.w(tag, msg);
+        } else {
+            System.out.println(tag + "\tWarning:" + msg);
+        }
+    }
+
+
+    public interface ITLog {
+        void i(String tag, String  msg);
+        void e(String tag, String  msg);
+        void w(String tag, String  msg);
     }
 }

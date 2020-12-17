@@ -27,7 +27,9 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.annotation.StringRes
 import com.github.angads25.filepicker.model.DialogConfigs
@@ -265,9 +267,10 @@ class AnimVapxDemoActivity : Activity(), IAnimListener {
     override fun onVideoConfigReady(config: AnimConfig): Boolean {
         uiHandler.post {
             val w = window.decorView.width
-            val lp = animView.layoutParams
+            val lp : FrameLayout.LayoutParams = animView.layoutParams as FrameLayout.LayoutParams
             lp.width = if (w == 0) dp2px(this, 400f).toInt() else w
             lp.height = (w * config.height * 1f / config.width).toInt()
+            lp.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
             animView.layoutParams = lp
         }
         return true
