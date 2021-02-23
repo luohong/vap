@@ -2,16 +2,16 @@
 
 VapTool Java版本支持 Windows 与Mac
 
-版本: [tool2.0.1](https://github.com/Tencent/vap/releases/tag/tool2.0.1)
+版本: [tool2.0.2](https://github.com/Tencent/vap/releases/tag/tool2.0.2)
 
 os|download|description
 ---|---|---
-Windows|[VapTool\_Java\_Win\_Full.zip](https://github.com/Tencent/vap/releases/download/tool2.0.1/VapTool_Java_Win_Full.zip)|包含jre 可直接运行
-Mac|[VapTool\_Java\_Mac\_without\_jre.zip](https://github.com/Tencent/vap/releases/download/tool2.0.1/VapTool_Java_Mac_without_jre.zip)|未含jre 但Mac基本自带java 
+Windows|[VapTool\_Java\_Win\_Full.zip](https://github.com/Tencent/vap/releases/download/tool2.0.2/VapTool_Java_Win_Full.zip)|包含jre 可直接运行
+Mac|[VapTool\_Java\_Mac\_without\_jre.zip](https://github.com/Tencent/vap/releases/download/tool2.0.2/VapTool_Java_Mac_without_jre.zip)|未含jre 但Mac基本自带java 
 
 运行包中包含其它工具，可以单独下载jar文件，替换后运行：
 
-download jar: [animtool_tool2.0.1.zip](https://github.com/Tencent/vap/releases/download/tool2.0.1/animtool_tool2.0.1.zip)
+download jar: [animtool_tool2.0.2.zip](https://github.com/Tencent/vap/releases/download/tool2.0.2/animtool_tool2.0.2.zip)
 
 
 ## Windows
@@ -26,17 +26,24 @@ win_start.bat
 
 需要打开终端命令行，进入到工具目录执行以下命令
 
+检查 & 初始化工作
 ```sh
 // 先检查是否已经安装java
 // 如未有版本信息输出，请先安装java
 java -version
 
-// 赋予脚步可执行权限（只需要执行一次）
+// 检查mac文件夹下 ffmpeg 与 mp4edit 工具是否有执行权限，没有权限请赋予运行权限
+./ffmpeg -version
+./md4edit -v
+
+// 赋予脚本可执行权限（只需要执行一次）
 chmod +x mac_start.sh
 
-// 启动工具
-./mac_start.sh
+```
 
+启动工具
+```sh
+./mac_start.sh
 ```
 
 ## 工具说明
@@ -85,6 +92,8 @@ ps：普通动画不需要此设置
 
 * (6) text Bold: 如果是文字类型，设置文字是否为粗体
 
+注意：使用融合动画 alpha scale 会强制设置为 0.5 因为需要给遮罩预留空间
+
 ### 遮罩图片说明
 例：
 
@@ -97,7 +106,7 @@ ps：普通动画不需要此设置
 
 2. 遮罩帧的尺寸必须与视频帧一致;
 
-3. 遮罩内容: 黑色区域表示图片(文字)需要显示的位置，其它区域透明度必须为0 (黑色块内的红色表示遮挡区域);
+3. 遮罩内容: 黑色区域表示图片(文字)需要显示的位置，其它区域透明度必须为0 (黑色区域内的红色表示遮挡区域);
 
 可以参考"vapx_demo"
 
@@ -105,7 +114,7 @@ ps：普通动画不需要此设置
 
 ![](./images/4.png)
 
-## 工具说明
+## 其它说明
 
 欢迎大家一起来完善Java版本功能. 
 
@@ -114,4 +123,8 @@ Java工具源码路径:Android/PlayerProj  项目：[animtool](https://github.co
 原Mac工具说明[Mac tool](./Mac_Tool.md)
 
 VAP json配置信息字段说明[Image](images/vap_field_info.png).
+
+## FAQ
+
+[常见问题说明](https://github.com/Tencent/vap/wiki/FAQ)
 

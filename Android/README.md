@@ -15,6 +15,8 @@ IAnimListener 视频播放过程中的回调方法
 private fun init() {
     // 获取视频播放 AnimView
     animView = (AnimView) findViewById(R.id.player);
+    // 可选: 设置视频对齐方式（默认FIT_XY，支持自定义）
+    animView.setScaleType(ScaleType.FIT_XY)
     // 开始播放动画文件
     animView.startPlay(file)
 }
@@ -104,7 +106,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.egame.vap:animplayer:2.0.11"
+    implementation "com.egame.vap:animplayer:2.0.13"
 }
 ```
 
