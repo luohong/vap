@@ -15,12 +15,13 @@
  */
 package com.tencent.qgame.animplayer
 
+import com.tencent.qgame.animplayer.file.IFileContainer
 import com.tencent.qgame.animplayer.inter.IAnimListener
 import com.tencent.qgame.animplayer.mask.MaskConfig
 import com.tencent.qgame.animplayer.plugin.AnimPluginManager
 import com.tencent.qgame.animplayer.util.ALog
 
-class AnimPlayer(val animView: AnimView) {
+class AnimPlayer(val animView: IAnimView) {
 
     companion object {
         private const val TAG = "${Constant.TAG}.AnimPlayer"
@@ -71,7 +72,7 @@ class AnimPlayer(val animView: AnimView) {
         decoder?.onSurfaceSizeChanged(width, height)
     }
 
-    fun startPlay(fileContainer: FileContainer) {
+    fun startPlay(fileContainer: IFileContainer) {
         isStartRunning = true
         prepareDecoder()
         if (decoder?.prepareThread() == false) {
@@ -98,7 +99,7 @@ class AnimPlayer(val animView: AnimView) {
         }
     }
 
-    private fun innerStartPlay(fileContainer: FileContainer) {
+    private fun innerStartPlay(fileContainer: IFileContainer) {
         synchronized(AnimPlayer::class.java) {
             if (isSurfaceAvailable) {
                 isStartRunning = false
