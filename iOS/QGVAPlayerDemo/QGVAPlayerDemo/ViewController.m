@@ -109,11 +109,14 @@ void qg_VAP_Logger_handler(VAPLogLevel level, const char* file, int line, const 
     QGVAPWrapView *wrapView = [[QGVAPWrapView alloc] initWithFrame:self.view.bounds];
     wrapView.center = self.view.center;
     wrapView.contentMode = QGVAPWrapViewContentModeAspectFit;
+    wrapView.autoDestoryAfterFinish = YES;
     [self.view addSubview:wrapView];
     NSString *resPath = [NSString stringWithFormat:@"%@/Resource/demo.mp4", [[NSBundle mainBundle] resourcePath]];
     [wrapView vapWrapView_playHWDMP4:resPath repeatCount:-1 delegate:self];
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onImageviewTap:)];
-    [wrapView addGestureRecognizer:tap];
+    [wrapView vapWrapView_addVapGesture:tap callback:^(UIGestureRecognizer *gestureRecognizer, BOOL insideSource, QGVAPSourceDisplayItem *source) {
+        
+    }];
 }
 
 #pragma mark -  mp4 hwd delegate
@@ -134,7 +137,7 @@ void qg_VAP_Logger_handler(VAPLogLevel level, const char* file, int line, const 
 - (void)viewDidStopPlayMP4:(NSInteger)lastFrameIndex view:(UIView *)container {
     //note:在子线程被调用
     dispatch_async(dispatch_get_main_queue(), ^{
-        //do something
+        [container removeFromSuperview];
     });
 }
 

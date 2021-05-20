@@ -32,9 +32,3 @@ dependencies {
     implementation "org.permissionsdispatcher:permissionsdispatcher:4.7.0"
     kapt "org.permissionsdispatcher:permissionsdispatcher-processor:4.7.0"
 }
-
-project.afterEvaluate {
-    def assembleDebugTask = project.tasks.find { it.name == 'assembleDebug' }
-    def lintTask = project.tasks.find { it.name == 'lintDebug' }
-    assembleDebugTask.dependsOn(lintTask)
-}
